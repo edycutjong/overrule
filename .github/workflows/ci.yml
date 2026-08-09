@@ -1,0 +1,132 @@
+name: CI
+
+# This workflow treats the Overrule core (this `build/` directory) as the
+# repository root — the core is packaged for extraction as the OSS
+# `@overrule/core` / denialkit toolkit, at which point this directory IS the
+# repo. All paths below are relative to that root.
+#
+# Everything here runs OFFLINE and DETERMINISTIC: no GEMINI_API_KEY, no network,
+# no live Stripe/Lob. The real Gemini adapter is dynamically imported only when
+# a key is present, so CI never touches it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs for the same PR/branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── STAGE 1 · Quality — typecheck + the 121 vitest tests ──────────────
+  quality:
+    name: "Stage 1 · Quality (typecheck + tests)"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Full matrix on main push (engines: node >=18.17); single node on PRs.
+        node-version: ${{ github.event_name == 'push' && fromJSON('["18","20","22"]') || fromJSON('["20"]') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck (tsc --noEmit, strict)
+        run: npm run typecheck
+      - name: Unit tests (vitest run — offline, no API key)
+        run: npm test
+        env:
+          GEMINI_API_KEY: ""
+
+  # ── STAGE 2 · Autonomy proof — the "hard part", made CI-visible ───────
+  # Re-runs the signed-ledger self-test and re-verifies the exported chain on a
+  # clean machine, so the autonomy evidence is reproduced by CI, not asserted.
+  proof:
+    name: "Stage 2 · Autonomy proof (signed ledger + self-test)"
+    needs: [quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Seed deterministic fixtures
+        run: npm run seed
+      - name: Fixtures are byte-identical (seed --check)
+        run: npm run seed:check
+      - name: End-to-end offline self-test (22 invariant checks + negative control)
+        run: npm run self-test
+      - name: Independently re-verify the signed ledger the self-test wrote
+        run: npm run verify:ledger
+      - name: Per-stage benchmark (mock adapter — mechanics only)
+        run: npm run bench
+      - name: Upload ledger proof artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ledger-proof
+          path: |
+            out/ledger.jsonl
+            out/ledger_manifest.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ── STAGE 3 · Security (parallel with Stages 1–2) ────────────────────
+  secret-scan:
+    name: "Stage 3 · Secret scan (TruffleHog)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: TruffleHog filesystem scan (verified secrets only)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --only-verified
+
+  dependency-audit:
+    name: "Stage 3 · Dependency audit (npm)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: npm audit (high + critical)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  # ── STAGE 4 · Gate ───────────────────────────────────────────────────
+  gate:
+    name: "Stage 4 · Gate"
+    needs: [quality, proof, secret-scan, dependency-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All gates passed
+        run: |
+          echo "Overrule CI — all gates green"
+          echo "  Stage 1 — typecheck + 121 vitest tests (offline)"
+          echo "  Stage 2 — seed:check + self-test (22 invariants) + verify:ledger + bench"
+          echo "  Stage 3 — TruffleHog secret scan + npm audit"

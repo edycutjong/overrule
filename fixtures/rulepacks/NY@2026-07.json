@@ -1,0 +1,27 @@
+{
+  "schema": "overrule-rulepack@1",
+  "state": "NY",
+  "version": "2026-07",
+  "fixture": true,
+  "fixture_note": "FIXTURE — fixture-realistic values for offline testing only. Production rulepacks are snapshotted from the official state DFS source and hash-pinned (ARCHITECTURE.md); these numbers must be re-verified against New York DFS guidance before any production use.",
+  "internal_appeal": {
+    "level1_window_days": 180,
+    "window_basis": "denial_notice_date",
+    "payer_decision_days": 30,
+    "expedited_decision_days": 2
+  },
+  "external_review": {
+    "available_after": "internal_l1",
+    "window_days": 120,
+    "authority": "New York Department of Financial Services — External Appeal (FIXTURE)",
+    "request_channel": "form"
+  },
+  "follow_up": {
+    "first_check_days": 21,
+    "recheck_days": 14,
+    "max_silent_followups": 3
+  },
+  "mail": {
+    "method": "certified"
+  }
+}

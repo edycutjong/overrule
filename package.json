@@ -1,0 +1,41 @@
+{
+  "name": "@overrule/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Overrule offline-testable core: decision ledger, case state machine, mandate middleware, docket engine, redaction, agent pipeline. All fixtures SYNTHETIC.",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "bin": {
+    "overrule": "bin/overrule.mjs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "seed": "tsx scripts/seed.ts",
+    "seed:check": "tsx scripts/seed.ts --check",
+    "verify:ledger": "tsx scripts/verify_ledger.ts",
+    "bench": "tsx scripts/bench.ts",
+    "self_test": "tsx scripts/self_test.ts",
+    "self-test": "tsx scripts/self_test.ts",
+    "overrule": "tsx src/cli.ts",
+    "verify:dashboard": "npm run self-test && node -e \"console.log('\\n/verify dashboard ready — open in a browser:\\n  file://' + require('path').resolve('verify/index.html'))\"",
+    "evidence": "tsx scripts/capture_evidence.ts",
+    "proof": "npm run seed && npm run seed:check && npm run self-test && npm run verify:ledger",
+    "audit": "npm audit --audit-level=high",
+    "ci": "npm run typecheck && npm run test && npm run proof"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "playwright": "^1.59.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "overrule-fixture-manifest@1",
+  "note": "SYNTHETIC fixtures — deterministic generator output; seed --check re-hashes for byte-identical demos.",
+  "generated": {
+    "ground_truth.json": "4c7785e00bf0f00c0590d5e49a5cdcd125a94d8826c3afb6fa1554ddd566d945",
+    "letters/deadline_rescue.txt": "307e1270024366206a87b1ad181cae153082b07eeab88df0349469958398b0af",
+    "letters/declined_cosmetic.txt": "d93a17bdd12658b90ef4aae05880134830eb6ff224e4a2f5ac81dff5cba138d0",
+    "letters/golden_01.txt": "0afba82462b7313b7db3347da20be8dd2a13bc181f963b8760f9f92d22f4c0a4",
+    "letters/golden_02.txt": "cdddea6f2dd4a316a1bbaba5209bdc72eebf77a70dfd5b38703d716abb202e60",
+    "letters/golden_03.txt": "f35e46e1b1b94ea04be1e8edfe5718ab62deeb8e17d6360277b58782d088092d",
+    "letters/golden_04.txt": "e18b20bbab62390c43fba859541f1604863cf1920535f5145bea597d563e4c19",
+    "letters/golden_05.txt": "c7d4c9af64e0d81efd9aa3348f06e44b62dd72d1908a192a50d8aa6962fb1ff2",
+    "letters/golden_06.txt": "7a7ba4194548b8e259604e9388fb6cd6c083e3bba02238919623155fbbafcb53",
+    "letters/golden_07.txt": "74171867fdfdb55a49b382a058da1d10eb0095e05c72a08beaada8391b262763",
+    "letters/golden_08.txt": "c23769ec8e0ef11d895cceb982e14301f8e2a04b54ed978742e6ef4ed1c7e356",
+    "letters/golden_09.txt": "1e1a295221a96f0747570ebc28da3f1fb23c0bfb08ae04373ccfb044fa5b596b",
+    "letters/golden_10.txt": "cbfd8972914c94bbda0d626005f8c520c67eef09ee3d84a5f130b5b18989e137",
+    "letters/golden_11.txt": "a828e4ad0cab5027ad2b14fa61e74b17cef5d902920c8469f711f66c36b86f17",
+    "letters/golden_12.txt": "0b8c71507bf926cd880561325e7dd5a7892ca3b5d8950b2e983a249fe8d69a1f",
+    "letters/maria_asthma.txt": "16ec40997268f6534ad044c2da564910261d9c33419b826cb981abfb2cfd623e",
+    "plans/plan_aetna_ppo_2026.txt": "4373d2f4760c6280b2a6e0ca107b2d7b9b0031cea159878ca172639bab025b41",
+    "plans/plan_bluecrest_hmo_2026.txt": "27c233a0b98bc476a8d8f00bd4ffaf43e44d1e2cb92f5772c4cad0d8e7761888"
+  },
+  "rulepacks": {
+    "CA@2026-07.json": "1044b71fb94ea54e8b3e4d97a1ac2a5c6a783e715c67689f623caa4b2e0ad74f",
+    "NY@2026-07.json": "cb11b7b89da67561e91030c8903522bb9cd9d221d295cc70cdfb6f6097da99d7",
+    "TX@2026-07.json": "426535a75831a0d50be082cdd98a35d5c745d195efa8646716057da2671640d3"
+  }
+}

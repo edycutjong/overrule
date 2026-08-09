@@ -1,0 +1,20 @@
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+
+# ── Generated / deterministic artifacts (re-created by scripts) ─
+out/
+fixtures/generated/
+*.tsbuildinfo
+coverage/
+.vitest/
+
+# ── Secrets & environment (NEVER commit; live keys are online-path) ─
+.env
+.env.*
+!.env.example
+
+# ── Logs & OS cruft ──────────────────────────────────────────
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
