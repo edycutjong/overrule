@@ -29,7 +29,7 @@
     "ci": "npm run typecheck && npm run test && npm run proof"
   },
   "dependencies": {
-    "@google/genai": "^1.0.0"
+    "@google/genai": "^2.16.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
