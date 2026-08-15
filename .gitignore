@@ -18,3 +18,6 @@ coverage/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+
+# graphify knowledge graph (kitchen — never judge-facing)
+graphify-out/
