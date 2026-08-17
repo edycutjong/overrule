@@ -13,6 +13,12 @@ name: Release
 # `fix:` -> 1.0.1, `feat:` -> 1.1.0, `feat!:`/`BREAKING CHANGE:` -> 2.0.0.
 #
 # Auth is the built-in GITHUB_TOKEN — no PAT, no external secret.
+#
+# GOTCHA: release-please-config.json must keep `"component": ""`. release-please
+# derives a component from a scoped package name (@overrule/core -> "core"), and
+# a single-package release PR carries no component, so a non-empty value makes
+# the run log "PR component: undefined does not match configured component" and
+# silently decline to cut the release — the job stays green while nothing ships.
 
 on:
   push:
