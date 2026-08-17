@@ -21,3 +21,7 @@ Thumbs.db
 
 # graphify knowledge graph (kitchen — never judge-facing)
 graphify-out/
+
+# ── Vercel CLI local link (would override VERCEL_PROJECT_ID in CI) ──
+.vercel/
+verify/.vercel/

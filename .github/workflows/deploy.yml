@@ -1,0 +1,208 @@
+name: Deploy
+
+# Publishes the judge-facing /verify dashboard to Vercel production.
+#
+# DEPLOY SHAPE — read before changing anything here:
+#   * The Vercel project (`overrule`) serves ONLY the static contents of the
+#     `verify/` directory: index.html + data/. It does NOT serve the repo root.
+#     There is no server, no framework, no Dockerfile — `--cwd verify` makes
+#     verify/ the deployment root so `/` resolves to verify/index.html.
+#   * Project linking comes from the VERCEL_ORG_ID / VERCEL_PROJECT_ID repo
+#     variables. Without them the CLI silently CREATES A NEW PROJECT named
+#     after the directory instead of deploying to the live one.
+#   * `vercel deploy --prod` does not reliably move the custom-domain alias on
+#     this account, so the alias is re-asserted explicitly after every deploy.
+#   * https://overrule.edycu.dev is a judged artifact that must stay up through
+#     2026-09-15. The preflight refuses to deploy a broken/missing dashboard,
+#     and the post-deploy smoke check FAILS the job if the live page is not the
+#     dashboard — byte-identical to the verify/index.html in this commit.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One production deploy at a time; never cancel one mid-flight — a cancelled
+# deploy can leave the alias pointing at a half-promoted deployment.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+  VERCEL_CLI_VERSION: "53.2.0"
+  LIVE_URL: "https://overrule.edycu.dev"
+  LIVE_DOMAIN: "overrule.edycu.dev"
+
+jobs:
+  deploy:
+    name: "Deploy /verify to Vercel production"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Guard 1 · never ship a broken artifact ────────────────────────
+      # If this commit's verify/ is not a healthy dashboard, stop BEFORE the
+      # deploy so the currently-live page is left untouched.
+      - name: Preflight — verify/ is a healthy static dashboard
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::preflight: $*"; exit 1; }
+
+          [ -f verify/index.html ] || fail "verify/index.html is missing"
+          [ -f verify/data/dashboard-data.js ] || fail "verify/data/dashboard-data.js is missing"
+
+          size=$(wc -c < verify/index.html | tr -d "[:space:]")
+          [ "$size" -ge 20000 ] || fail "verify/index.html is only ${size} bytes — expected >= 20000"
+
+          grep -q '<title>Overrule' verify/index.html || fail "no Overrule <title> in verify/index.html"
+          grep -q 'id="proofstrip"' verify/index.html || fail "dashboard markup (#proofstrip) missing"
+          grep -q 'src="data/dashboard-data.js"' verify/index.html || fail "dashboard data script tag missing"
+          grep -q '__OVERRULE_DATA__' verify/data/dashboard-data.js || fail "dashboard data payload missing"
+
+          # A stale .vercel/ would override the org/project variables below.
+          [ ! -e verify/.vercel ] || fail "verify/.vercel must not be committed"
+
+          echo "preflight OK — verify/index.html ${size} bytes"
+          sha256sum verify/index.html verify/data/dashboard-data.js
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI (pinned)
+        run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
+
+      - name: Sanity — Vercel project variables are present
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          [ -n "${VERCEL_ORG_ID:-}" ]     || { echo "::error::VERCEL_ORG_ID variable is not set"; exit 1; }
+          [ -n "${VERCEL_PROJECT_ID:-}" ] || { echo "::error::VERCEL_PROJECT_ID variable is not set"; exit 1; }
+          [ -n "${VERCEL_TOKEN:-}" ]      || { echo "::error::VERCEL_TOKEN secret is not set"; exit 1; }
+          echo "org=${VERCEL_ORG_ID} project=${VERCEL_PROJECT_ID}"
+
+      # ── Deploy ────────────────────────────────────────────────────────
+      - name: Deploy verify/ to Vercel production
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          set +e
+          vercel deploy --prod --cwd verify --yes --token="$VERCEL_TOKEN" \
+            > /tmp/vercel.out 2> /tmp/vercel.err
+          rc=$?
+          set -e
+          echo "--- vercel stdout ---"; cat /tmp/vercel.out
+          echo "--- vercel stderr ---"; cat /tmp/vercel.err
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::vercel deploy exited ${rc}"
+            exit "$rc"
+          fi
+
+          # The CLI prints plain text in CI and JSON when it detects an agent;
+          # both put the deployment origin in the output. Take the first
+          # *.vercel.app URL (the inspector URL is on vercel.com, so it cannot
+          # be matched by accident).
+          url=$(grep -Eoh 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/vercel.out /tmp/vercel.err | head -n 1 || true)
+          [ -n "$url" ] || { echo "::error::could not parse a deployment URL from the vercel output"; exit 1; }
+
+          echo "deployment_url=${url}" >> "$GITHUB_OUTPUT"
+          echo "Deployed: ${url}"
+
+      # ── Known gotcha · move the custom-domain alias ───────────────────
+      # `--prod` does not reliably re-point overrule.edycu.dev on this account.
+      # `vercel alias set` is idempotent, so assert it unconditionally. Failure
+      # here is not fatal on its own — the smoke check below is the real gate,
+      # and it retries the alias once more before giving up.
+      - name: Point overrule.edycu.dev at this deployment
+        continue-on-error: true
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          vercel alias set "$DEPLOYMENT_URL" "$LIVE_DOMAIN" \
+            --scope "$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+
+      # ── Guard 2 · the live page must be the dashboard ─────────────────
+      - name: Smoke check — https://overrule.edycu.dev serves this build
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          set -uo pipefail
+          expected_html=$(sha256sum verify/index.html | cut -d' ' -f1)
+          expected_data=$(sha256sum verify/data/dashboard-data.js | cut -d' ' -f1)
+          echo "expected index.html sha256 = ${expected_html}"
+
+          code=""; actual_html=""
+          for attempt in 1 2 3 4 5 6 7 8; do
+            # Unique query string defeats the Vercel edge cache.
+            code=$(curl -sS --compressed --max-time 30 \
+                    -o /tmp/live.html -w '%{http_code}' \
+                    "${LIVE_URL}/?ci=${GITHUB_RUN_ID}-${attempt}" || echo "000")
+            actual_html=$(sha256sum /tmp/live.html | cut -d' ' -f1)
+            echo "attempt ${attempt}: HTTP ${code} sha256 ${actual_html}"
+            if [ "$code" = "200" ] && [ "$actual_html" = "$expected_html" ]; then
+              break
+            fi
+            # Halfway through, re-assert the alias: this is the documented
+            # failure mode (deployment is fine, the domain never moved).
+            if [ "$attempt" = "4" ]; then
+              echo "live page still stale — re-running: vercel alias set"
+              vercel alias set "$DEPLOYMENT_URL" "$LIVE_DOMAIN" \
+                --scope "$VERCEL_ORG_ID" --token="$VERCEL_TOKEN" || true
+            fi
+            sleep 8
+          done
+
+          set -e
+          fail() { echo "::error::LIVE SITE CHECK FAILED: $*"; echo "--- first 400 bytes served ---"; head -c 400 /tmp/live.html; exit 1; }
+
+          # 1 · reachable
+          [ "$code" = "200" ] || fail "${LIVE_URL} returned HTTP ${code}"
+
+          # 2 · it is the dashboard, not a 404 / directory index / repo listing
+          size=$(wc -c < /tmp/live.html | tr -d "[:space:]")
+          [ "$size" -ge 20000 ] || fail "served page is only ${size} bytes"
+          grep -q '<title>Overrule' /tmp/live.html      || fail "served page has no Overrule <title>"
+          grep -q 'id="proofstrip"' /tmp/live.html      || fail "served page lacks the dashboard markup (#proofstrip)"
+          grep -q 'src="data/dashboard-data.js"' /tmp/live.html || fail "served page lacks the dashboard data script"
+          grep -qiE 'Index of /|<title>404|Directory listing|DEPLOYMENT_NOT_FOUND' /tmp/live.html \
+            && fail "served page looks like a 404 or a directory index" || true
+
+          # 3 · it is THIS build, not a stale alias
+          [ "$actual_html" = "$expected_html" ] \
+            || fail "live page does not match verify/index.html in this commit (expected ${expected_html}, got ${actual_html})"
+
+          # 4 · the data the dashboard renders from is served too
+          data_code=$(curl -sS --compressed --max-time 30 \
+                       -o /tmp/live-data.js -w '%{http_code}' \
+                       "${LIVE_URL}/data/dashboard-data.js?ci=${GITHUB_RUN_ID}" || echo "000")
+          [ "$data_code" = "200" ] || fail "/data/dashboard-data.js returned HTTP ${data_code}"
+          grep -q '__OVERRULE_DATA__' /tmp/live-data.js || fail "/data/dashboard-data.js is not the dashboard payload"
+          actual_data=$(sha256sum /tmp/live-data.js | cut -d' ' -f1)
+          [ "$actual_data" = "$expected_data" ] \
+            || fail "/data/dashboard-data.js does not match this commit"
+
+          {
+            echo "### Live dashboard verified"
+            echo ""
+            echo "| check | result |"
+            echo "| --- | --- |"
+            echo "| ${LIVE_URL} | HTTP 200, ${size} bytes |"
+            echo "| dashboard markup | present (#proofstrip) |"
+            echo "| index.html sha256 | \`${actual_html}\` (matches this commit) |"
+            echo "| data/dashboard-data.js | HTTP 200, matches this commit |"
+            echo "| deployment | ${DEPLOYMENT_URL} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "LIVE SITE OK — ${LIVE_URL} serves this build."
