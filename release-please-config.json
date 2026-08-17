@@ -5,8 +5,7 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "@overrule/core",
-      "component": "",
+      "package-name": "",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": false,

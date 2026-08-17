@@ -14,11 +14,18 @@ name: Release
 #
 # Auth is the built-in GITHUB_TOKEN — no PAT, no external secret.
 #
-# GOTCHA: release-please-config.json must keep `"component": ""`. release-please
-# derives a component from a scoped package name (@overrule/core -> "core"), and
-# a single-package release PR carries no component, so a non-empty value makes
-# the run log "PR component: undefined does not match configured component" and
-# silently decline to cut the release — the job stays green while nothing ships.
+# GOTCHA — release-please-config.json must keep `"package-name": ""`.
+#
+# With separate-pull-requests: false the Merge plugin flattens the single
+# package into one PR on branch `release-please--branches--main`, which carries
+# NO component. When it later builds the GitHub Release it compares that branch
+# against getBranchComponent() = `component || normalizeComponent(packageName)`.
+# A scoped name (@overrule/core) normalises to "core", so the check fails with
+# "PR component: undefined does not match configured component: core" and the
+# release is silently skipped — the job still reports success while nothing
+# ships. `"component": ""` does NOT help: it is falsy, so it falls through to
+# the package name. Only an empty package-name makes both sides resolve to "".
+# Verified with: npx release-please@17 github-release --dry-run (0 vs 1 tagged).
 
 on:
   push:
