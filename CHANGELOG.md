@@ -6,6 +6,16 @@ From v1.0.0 onward this file is generated automatically by
 [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org/) — do not edit it by hand.
 
+## [1.0.3](https://github.com/edycutjong/overrule/compare/v1.0.2...v1.0.3) (2026-08-17)
+
+
+### Documentation
+
+* **pages:** add social metadata, canonical URL and touch icons ([e619c39](https://github.com/edycutjong/overrule/commit/e619c39ccacfcbff808680fda470f40bd50eb1ce))
+* **pages:** add social metadata, canonical URL and touch icons ([d2da8ec](https://github.com/edycutjong/overrule/commit/d2da8ecb4f94b3a59dc707cc30bf32004c9bf946))
+* **pages:** point canonical at the linked production URL ([e108ef2](https://github.com/edycutjong/overrule/commit/e108ef22bbce695c0d0d9c75b2d9a769142160be))
+* **pages:** publish the verify dashboard as a GitHub Pages landing page ([0066a28](https://github.com/edycutjong/overrule/commit/0066a282129c1318515bed109cfffd6c98ebd469))
+
 ## [1.0.2](https://github.com/edycutjong/overrule/compare/v1.0.1...v1.0.2) (2026-08-17)
 
 
