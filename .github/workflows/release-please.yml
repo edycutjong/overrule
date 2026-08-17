@@ -1,0 +1,60 @@
+name: Release
+
+# Automated semantic versioning driven purely by Conventional Commits.
+#
+# On every push to main, release-please reconciles the commit history against
+# `.release-please-manifest.json` and maintains a single "chore(main): release
+# x.y.z" pull request. Merging that PR is the release: release-please then
+# writes CHANGELOG.md, bumps package.json + package-lock.json, tags `vX.Y.Z`
+# and publishes the GitHub Release.
+#
+# Version anchor: the repository was tagged v1.0.0 at the submission state, and
+# the manifest records that same 1.0.0 as the last released version. From here
+# `fix:` -> 1.0.1, `feat:` -> 1.1.0, `feat!:`/`BREAKING CHANGE:` -> 2.0.0.
+#
+# Auth is the built-in GITHUB_TOKEN — no PAT, no external secret.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+# Never run two release reconciliations at once, and never cancel one midway:
+# a half-finished release PR is worse than a queued one.
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: "Release PR / tag / GitHub Release"
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Report outcome
+        run: |
+          if [ "${{ steps.release.outputs.release_created }}" = "true" ]; then
+            echo "Released ${{ steps.release.outputs.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- tag: \`${{ steps.release.outputs.tag_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- version: \`${{ steps.release.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${{ steps.release.outputs.pr }}" ]; then
+            echo "Release PR created/updated — merge it to cut the release." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No release-worthy commits since the last release." >> "$GITHUB_STEP_SUMMARY"
+          fi
