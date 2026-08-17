@@ -35,12 +35,34 @@ jobs:
     name: "Release PR / tag / GitHub Release"
     runs-on: ubuntu-latest
     outputs:
-      released: ${{ steps.release.outputs.release_created }}
-      tag: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      released: ${{ steps.release.outputs.release_created || steps.retry.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name || steps.retry.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version || steps.retry.outputs.version }}
     steps:
       - name: Run release-please
         id: release
+        # GitHub's git-data endpoints (POST /git/refs, POST /git/commits) 503
+        # intermittently, which kills release-please mid-flight through no
+        # fault of the config. Absorb the first failure and retry below.
+        continue-on-error: true
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Back off before retrying
+        if: steps.release.outcome == 'failure'
+        run: |
+          echo "release-please failed (likely a transient GitHub API 5xx) — retrying in 45s"
+          sleep 45
+
+      # release-please is idempotent: it reconciles the existing release branch
+      # and PR rather than duplicating them, so a second pass is safe. This one
+      # is NOT continue-on-error — if the API is genuinely down, the job goes red.
+      - name: Run release-please (retry)
+        id: retry
+        if: steps.release.outcome == 'failure'
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,11 +75,11 @@ jobs:
       - name: Report outcome
         if: always()
         env:
-          RELEASED: ${{ steps.release.outputs.release_created }}
-          TAG_NAME: ${{ steps.release.outputs.tag_name }}
-          VERSION: ${{ steps.release.outputs.version }}
-          PRS_CREATED: ${{ steps.release.outputs.prs_created }}
-          PR_JSON: ${{ steps.release.outputs.pr }}
+          RELEASED: ${{ steps.release.outputs.release_created || steps.retry.outputs.release_created }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name || steps.retry.outputs.tag_name }}
+          VERSION: ${{ steps.release.outputs.version || steps.retry.outputs.version }}
+          PRS_CREATED: ${{ steps.release.outputs.prs_created || steps.retry.outputs.prs_created }}
+          PR_JSON: ${{ steps.release.outputs.pr || steps.retry.outputs.pr }}
         run: |
           set -euo pipefail
           if [ "${RELEASED:-}" = "true" ]; then
