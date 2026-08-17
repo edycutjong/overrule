@@ -1,6 +1,6 @@
 {
   "name": "@overrule/core",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Overrule offline-testable core: decision ledger, case state machine, mandate middleware, docket engine, redaction, agent pipeline. All fixtures SYNTHETIC.",
   "type": "module",
