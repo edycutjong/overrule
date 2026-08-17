@@ -4,6 +4,10 @@
 
 **Upload a denial letter. AI agents build, file, mail, and docket the entire appeal — and sign every decision onto a tamper-evident ledger a judge can re-verify offline.**
 
+**[▶ Live evidence dashboard — overrule.edycu.dev](https://overrule.edycu.dev)** · [Demo video (2:46)](https://youtu.be/nAW5Se6mFy4)
+
+*The dashboard renders **synthetic fixture data** from the offline core. Nothing is deployed as a product, and no live model call has ever been made — see [What is NOT proven](./DEMO.md#what-is-not-proven-here).*
+
 *Problem: fewer than 1 in 100 insurance denials are ever appealed — not for lack of a case, but because filing one is unmanaged project work under a deadline buried on page 4, citing a clause buried on page 87.*
 *Solution: Overrule runs the whole appeal as an autonomous, signed case — triage → evidence → strategy → clause-cited draft → **fail-closed** citation check → certified mail + docket.*
 *What's built here: the complete **offline, deterministic core** — signed Decision Ledger, case state machine, money/mail mandate gate, docket engine, PHI redaction, and the 6-stage agent pipeline. **121 tests green; one command proves the autonomy end-to-end with no network and no API key.***
