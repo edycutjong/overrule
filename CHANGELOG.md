@@ -6,6 +6,14 @@ From v1.0.0 onward this file is generated automatically by
 [release-please](https://github.com/googleapis/release-please) from
 [Conventional Commits](https://www.conventionalcommits.org/) — do not edit it by hand.
 
+## [1.0.2](https://github.com/edycutjong/overrule/compare/v1.0.1...v1.0.2) (2026-08-17)
+
+
+### Bug Fixes
+
+* **ci:** empty release-please package-name so the release actually gets tagged ([6ac87c2](https://github.com/edycutjong/overrule/commit/6ac87c2e24ce8fe442b54395d30b5a4e608bb6ad))
+* **ci:** pin release-please to an empty component so releases actually cut ([66b7f11](https://github.com/edycutjong/overrule/commit/66b7f11b73fe23d9ed8d1e3bd6f99e7be29287a4))
+
 ## [1.0.1](https://github.com/edycutjong/overrule/compare/v1.0.0...v1.0.1) (2026-08-17)
 
 
