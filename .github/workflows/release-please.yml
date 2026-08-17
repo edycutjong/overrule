@@ -47,14 +47,33 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # Outputs are passed through `env`, never interpolated into the script:
+      # `outputs.pr` is a raw JSON blob containing quotes, newlines and `<`,
+      # which breaks (and could inject into) an inlined shell command.
       - name: Report outcome
+        if: always()
+        env:
+          RELEASED: ${{ steps.release.outputs.release_created }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PRS_CREATED: ${{ steps.release.outputs.prs_created }}
+          PR_JSON: ${{ steps.release.outputs.pr }}
         run: |
-          if [ "${{ steps.release.outputs.release_created }}" = "true" ]; then
-            echo "Released ${{ steps.release.outputs.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- tag: \`${{ steps.release.outputs.tag_name }}\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- version: \`${{ steps.release.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
-          elif [ -n "${{ steps.release.outputs.pr }}" ]; then
-            echo "Release PR created/updated — merge it to cut the release." >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          if [ "${RELEASED:-}" = "true" ]; then
+            {
+              echo "### Released ${TAG_NAME:-}"
+              echo ""
+              echo "- tag: \`${TAG_NAME:-}\`"
+              echo "- version: \`${VERSION:-}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${PR_JSON:-}" ]; then
+            num=$(printf '%s' "$PR_JSON" | jq -r '.number // empty' 2>/dev/null || true)
+            {
+              echo "### Release PR ${num:+#$num} is open (prs_created=${PRS_CREATED:-false})"
+              echo ""
+              echo "Merge it to tag the version, write CHANGELOG.md and publish the GitHub Release."
+            } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No release-worthy commits since the last release." >> "$GITHUB_STEP_SUMMARY"
           fi
