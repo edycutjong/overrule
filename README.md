@@ -119,7 +119,7 @@ is committed as the pinned hash set.
 
 ### What `self-test` proves (no network, no key)
 
-It drives the **maria_asthma** demo case (SEED_DATA.md) through the entire
+It drives the **maria_asthma** demo case (`src/fixtures/`) through the entire
 pipeline on the `DeterministicMockAdapter` + in-memory actuator fakes, then
 asserts 22 invariant checks and reproduces the exact demo verdict:
 
