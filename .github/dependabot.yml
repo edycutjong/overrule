@@ -1,15 +1,72 @@
 version: 2
+
+# Dependency updates are deliberately SLOW and BATCHED.
+#
+# The previous config (weekly, ungrouped, limit 10) opened a major vitest bump
+# mid-submission and destabilised a judged artifact. The settings below keep
+# the repo patched without ever moving it across a breaking boundary on its own:
+#
+#   * monthly, not weekly            — no churn between review windows
+#   * grouped                        — one PR per ecosystem, not one per package
+#   * major bumps ignored            — v3 -> v4 is a human decision, never a bot's
+#   * low open-PR limits             — a stalled queue stays reviewable
+#
+# Majors are reviewed by hand: `npm outdated` shows what is being held back.
+
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "fix(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
     groups:
-      dev-dependencies:
+      production-dependencies:
+        applies-to: version-updates
+        dependency-type: "production"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      development-dependencies:
+        applies-to: version-updates
         dependency-type: "development"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    ignore:
+      # Never let a bot cross a major boundary — this is the exact failure that
+      # bumped vitest 3.x mid-submission.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "ci(deps)"
+      include: "scope"
+    groups:
+      github-actions:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      github-actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    ignore:
+      # Action majors (e.g. checkout@v4 -> v5) change runner/runtime contracts;
+      # pin deliberately instead.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
