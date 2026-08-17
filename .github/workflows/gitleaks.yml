@@ -1,0 +1,83 @@
+name: Gitleaks
+
+# Full-history secret scan.
+#
+# The CI workflow's TruffleHog step only scans the working tree, so a secret
+# that was committed and later deleted stays invisible to it. This job walks
+# EVERY commit on EVERY ref (`fetch-depth: 0` + `--log-opts=--all`), which is
+# what actually matters for a public repo: git history is public too.
+#
+# Runs the pinned upstream binary rather than the marketplace action so it
+# needs no licence key and no secret of its own.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly sweep (Mondays 06:11 UTC), so a leak introduced between pushes
+    # is still caught.
+    - cron: "11 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: gitleaks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_VERSION: "8.30.1"
+
+jobs:
+  scan:
+    name: "Secret scan (full git history)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history, all refs)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch every ref so --log-opts=--all really means all
+        run: git fetch --no-tags --prune --quiet origin '+refs/heads/*:refs/remotes/origin/*' || true
+
+      - name: Install gitleaks ${{ env.GITLEAKS_VERSION }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/gitleaks.tar.gz "$url"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Scan full history
+        run: |
+          set -euo pipefail
+          gitleaks git . \
+            --log-opts="--all --full-history" \
+            --redact \
+            --no-banner \
+            --report-format sarif \
+            --report-path /tmp/gitleaks.sarif \
+            --exit-code 1
+
+      - name: Upload SARIF to code scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: /tmp/gitleaks.sarif
+          category: gitleaks
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: /tmp/gitleaks.sarif
+          retention-days: 14
+          if-no-files-found: ignore
