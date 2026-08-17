@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "entries": 15,
+  "cases": 1,
+  "days": 1,
+  "key_mode": "FIXTURE_DEV_KEYS",
+  "merkle_roots": {
+    "2026-07-14": "a66463cb3f4b6150136b47e17c7e1da7df6c1fde9b602d3323e4c60ccb54479b"
+  },
+  "note": "Recomputed by src/core/ledger/verify.ts from ledger.jsonl + ledger_manifest.json alone."
+}
